@@ -319,12 +319,32 @@ function renderSecurity() {
 }
 async function startScanner() {
   const result = document.querySelector('#scanResult');
+  let scanLocked = false;
+
   try {
     state.scanner = new Html5Qrcode('reader');
-    await state.scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 260, height: 260 } }, async decoded => {
-      const payload = parseQr(decoded);
-      await checkEntry(payload.id, payload.token, false);
-    });
+
+    await state.scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 260, height: 260 } },
+      async decoded => {
+        // Stop duplicate instant scans from the camera
+        if (scanLocked) return;
+        scanLocked = true;
+
+        try {
+          if (state.scanner) {
+            await state.scanner.stop();
+            state.scanner = null;
+          }
+        } catch (_) {
+          // Ignore scanner stop errors
+        }
+
+        const payload = parseQr(decoded);
+        await checkEntry(payload.id, payload.token, false);
+      }
+    );
   } catch (err) {
     result.innerHTML = `<div class="notice warn">Camera did not start. Use manual EPF check.</div>`;
   }
