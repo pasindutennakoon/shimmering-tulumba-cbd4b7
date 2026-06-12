@@ -304,17 +304,40 @@ async function loadAdminTable() {
 
 function renderSecurity() {
   if (requirePasscode('security', renderSecurity)) return;
+
   layout(`${nav('security')}
-    <div class="topline"><div><div class="hero-mini">Security Portal</div><h1>Scan QR at Entrance</h1></div><button class="btn outline" id="logout">Logout</button></div>
+    <div class="topline">
+      <div>
+        <div class="hero-mini">Security Portal</div>
+        <h1>Scan QR at Entrance</h1>
+      </div>
+      <button class="btn outline" id="logout">Logout</button>
+    </div>
+
     <div id="reader"></div>
+
     <div class="manualBox">
       <input id="manualId" placeholder="Manual EPF check if camera fails" />
       <button class="btn full" id="manualCheck">Check EPF</button>
+      <button class="btn full outline" id="refreshScanner">Scan Next Person</button>
     </div>
+
     <div id="scanResult"></div>
   `, true);
-  document.querySelector('#logout').onclick = () => { sessionStorage.removeItem('bn_security'); renderSecurity(); };
-  document.querySelector('#manualCheck').onclick = () => checkEntry(normalizeId(document.querySelector('#manualId').value), null, true);
+
+  document.querySelector('#logout').onclick = () => {
+    sessionStorage.removeItem('bn_security');
+    renderSecurity();
+  };
+
+  document.querySelector('#manualCheck').onclick = () => {
+    checkEntry(normalizeId(document.querySelector('#manualId').value), null, true);
+  };
+
+  document.querySelector('#refreshScanner').onclick = async () => {
+    await restartScanner();
+  };
+
   startScanner();
 }
 async function startScanner() {
@@ -358,6 +381,26 @@ function parseQr(text) {
   } catch {
     return { id: '', token: '' };
   }
+}
+
+async function restartScanner() {
+  const result = document.querySelector('#scanResult');
+  const reader = document.querySelector('#reader');
+
+  if (result) result.innerHTML = '';
+  if (reader) reader.innerHTML = '';
+
+  try {
+    if (state.scanner) {
+      await state.scanner.stop().catch(() => {});
+      state.scanner.clear?.();
+      state.scanner = null;
+    }
+  } catch (_) {
+    state.scanner = null;
+  }
+
+  await startScanner();
 }
 async function renderScanResult() {
   if (requirePasscode('security', renderScanResult)) return;
