@@ -202,15 +202,21 @@ async function renderAdmin() {
       </section>
     </div>
     <section class="panel">
-      <div class="topline"><h2>Employee Tickets</h2><button class="btn outline" id="refreshBtn">Refresh</button></div>
-      <input id="search" placeholder="Search EPF, name or contact" />
-      <div id="table"></div>
-    </section>
+  <div class="topline">
+    <h2>Employee Tickets</h2>
+    <div class="actions">
+      <button class="btn outline" id="downloadRecordsBtn">Download Full Record</button>
+      <button class="btn outline" id="refreshBtn">Refresh</button>
+    </div>
+  </div>
+  <input id="search" placeholder="Search EPF, name or contact" />
+  <div id="table"></div>
+</section>
   `);
-  document.querySelector('#logout').onclick = () => { sessionStorage.removeItem('bn_admin'); renderAdmin(); };
   document.querySelector('#uploadBtn').onclick = uploadPaidFile;
   document.querySelector('#addBtn').onclick = addPaidEmployee;
   document.querySelector('#refreshBtn').onclick = loadAdminTable;
+  document.querySelector('#downloadRecordsBtn').onclick = downloadFullRecord;
   document.querySelector('#search').oninput = loadAdminTable;
   await loadAdminTable();
 }
@@ -300,6 +306,61 @@ async function loadAdminTable() {
       }
     };
   });
+}
+async function downloadFullRecord() {
+  const { data, error } = await supabase
+    .from('employees')
+    .select('*')
+    .order('employee_id', { ascending: true });
+
+  if (error) {
+    alert('Could not download record: ' + error.message);
+    return;
+  }
+
+  if (!data || !data.length) {
+    alert('No records found to download.');
+    return;
+  }
+
+  const headers = [
+    'employee_id',
+    'full_name',
+    'contact',
+    'ticket_status',
+    'qr_generated',
+    'qr_generated_at',
+    'checked_in',
+    'checked_in_at',
+    'created_at',
+    'updated_at'
+  ];
+
+  const csvRows = [];
+
+  csvRows.push(headers.join(','));
+
+  for (const row of data) {
+    const values = headers.map(header => {
+      const value = row[header] ?? '';
+      return `"${String(value).replace(/"/g, '""')}"`;
+    });
+
+    csvRows.push(values.join(','));
+  }
+
+  const csvContent = csvRows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+  const now = new Date();
+  const dateStamp = now.toISOString().slice(0, 10);
+
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `Asiri_Bollywood_Night_Full_Record_${dateStamp}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function renderSecurity() {
